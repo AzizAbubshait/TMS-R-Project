@@ -38,6 +38,9 @@ gc_dat = gc %>%
     subject_nr != 0
     )
 
+gc %>% group_by(Site) %>%
+  summarize(n = n_distinct(subject_nr))
+
 # check how many were removed based on SD ----
 
 gc %>% 
@@ -66,8 +69,6 @@ gc %>%
   filter(subject_nr != 0) %>%
   print()
   
-###
-
 gc %>% group_by(subject_nr, Site) %>%
   filter(TRIAL_VALID == 0) %>%
   summarize(n_trials = n())
