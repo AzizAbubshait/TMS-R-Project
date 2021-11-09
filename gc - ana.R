@@ -38,6 +38,36 @@ gc_dat = gc %>%
     subject_nr != 0
     )
 
+# check how many were removed based on SD ----
+
+gc %>% 
+  group_by(
+    subject_nr
+  ) %>%
+  mutate(
+    validity = recode(validity, valid="invalid", invalid = "valid"),
+    accu_percent = sum(correct == 1)/length(correct)
+  ) %>%
+  group_by(
+    subject_nr#, gazeCond, validity
+  ) %>% # get correct trials only
+  mutate(
+    fast_resp = case_when(response_time <= 100 ~ 1,
+                          response_time >= 100 ~ 0),
+    slow_resp = case_when(response_time >= 1500 ~ 1,
+                          response_time <= 1500 ~ 0),
+    sd_out = case_when(response_time > abs(mean(response_time)+2*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-2*sd(response_time)) ~ 1)) %>% 
+  summarize(fast_resp = sum(fast_resp == 1, na.rm = T),
+            slow_resp = sum(slow_resp == 1, na.rm = T),
+            TRIAL_VALID = sum(TRIAL_VALID == 0, na.rm = T),
+            sd_out = sum(sd_out == 1, na.rm = T),
+            err = sum(correct == 0, na.rm = T)) %>%
+  filter(subject_nr != 0) %>%
+  print()
+  
+###
+
 gc %>% group_by(subject_nr, Site) %>%
   filter(TRIAL_VALID == 0) %>%
   summarize(n_trials = n())
@@ -52,6 +82,19 @@ gc_dat %>% group_by(subject_nr, Site) %>%
 
 gc_dat %>% group_by(gazeCond, validity, Site) %>%
     summarize(rt = mean(response_time)) %>% print()
+
+ggplot(gc_dat, aes(validity, response_time, color = validity))+
+  geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5), color = "black")+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  theme_bw()
+
+ggplot(gc_dat, aes(response_time, fill = validity))+
+  geom_density(alpha = .3)+theme_bw()+
+  scale_fill_manual(values = cbbPalette)
 
 ggplot(gc_dat, aes(gazeCond, response_time, color = validity, fill = validity))+
   geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
@@ -68,6 +111,18 @@ avg_gc = gc_dat %>%
   group_by(subject_nr, Site, validity, gazeCond, Session) %>%
   summarize(rt = mean(response_time))
 
+ggplot(avg_gc, aes(validity, y = rt))+
+  geom_point()+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5), color = "black")+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))
+ggplot(avg_gc, aes(validity, y = rt))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5), color = "black")+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))
+
 ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
   geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
@@ -83,6 +138,12 @@ avg_gc_long = avg_gc %>%
   pivot_wider(names_from = validity, values_from = rt) %>%
   mutate(gc = invalid-valid)
 
+ggplot(avg_gc_long, aes(gazeCond, gc, color = gazeCond, fill = gazeCond))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5), color = "black")+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))
+
 ggplot(avg_gc_long, aes(Site, gc, color = gazeCond, fill = gazeCond))+
   geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
@@ -97,14 +158,14 @@ ggplot(avg_gc_long, aes(Site, gc, color = gazeCond, fill = gazeCond))+
 #   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
 #   scale_fill_manual(values = cbbPalette)+
 #   scale_color_manual(values = cbbPalette)+
-#   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+#   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
 #                position = position_dodge(.5))+
 #   stat_summary(fun.data = mean_se, geom = "point", size = 5,
 #                position = position_dodge(.5))+
-#   geom_point() + 
-#   geom_line() + 
+#   geom_point() +
+#   geom_line() +
 #   theme_bw()
-# 
+
 
 # tms with ratings ----
 rat_dat = read.csv("aggregated_ratings.csv")
