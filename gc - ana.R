@@ -39,6 +39,7 @@ gc_dat = gc %>%
     )
 
 gc %>% group_by(Site) %>%
+  filter(subject_nr != 0) %>%
   summarize(n = n_distinct(subject_nr))
 
 # check how many were removed based on SD ----
@@ -68,10 +69,6 @@ gc %>%
             err = sum(correct == 0, na.rm = T)) %>%
   filter(subject_nr != 0) %>%
   print()
-  
-gc %>% group_by(subject_nr, Site) %>%
-  filter(TRIAL_VALID == 0) %>%
-  summarize(n_trials = n())
 
 gc_dat %>%
   group_by(subject_nr) %>%
@@ -84,40 +81,14 @@ gc_dat %>% group_by(subject_nr, Site) %>%
 gc_dat %>% group_by(gazeCond, validity, Site) %>%
     summarize(rt = mean(response_time)) %>% print()
 
-ggplot(gc_dat, aes(validity, response_time, color = validity))+
-  geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
-  scale_color_manual(values = cbbPalette)+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-               position = position_dodge(.5), color = "black")+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))+
-  theme_bw()
-
 ggplot(gc_dat, aes(response_time, fill = validity))+
   geom_density(alpha = .3)+theme_bw()+
   scale_fill_manual(values = cbbPalette)
-
-ggplot(gc_dat, aes(gazeCond, response_time, color = validity, fill = validity))+
-  geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
-  geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
-  scale_fill_manual(values = cbbPalette)+
-  scale_color_manual(values = cbbPalette)+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-               position = position_dodge(.5), color = "black")+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))+
-  facet_wrap(~Site, scales = "free_y")
 
 avg_gc = gc_dat %>%
   group_by(subject_nr, Site, validity, gazeCond, Session) %>%
   summarize(rt = mean(response_time))
 
-ggplot(avg_gc, aes(validity, y = rt))+
-  geom_point()+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-               position = position_dodge(.5), color = "black")+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))
 ggplot(avg_gc, aes(validity, y = rt))+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
                position = position_dodge(.5), color = "black")+
@@ -135,11 +106,34 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
                position = position_dodge(.5))+
   facet_wrap(~Site, scales = "free_y")
 
+ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  facet_wrap(~Site, scales = "free_y")+theme_bw()
+
 avg_gc_long = avg_gc %>%
   pivot_wider(names_from = validity, values_from = rt) %>%
-  mutate(gc = invalid-valid)
+  mutate(gc = invalid-valid) 
+avg_gc_long$gc_sd = scale(avg_gc_long$gc, center = T, scale = T)
 
-ggplot(avg_gc_long, aes(gazeCond, gc, color = gazeCond, fill = gazeCond))+
+avg_gc_long %>%
+  ggplot(aes(gc_sd, fill = Site))+
+  geom_histogram(bins = 30, position = position_dodge())+
+  geom_vline(xintercept = 2.5, linetype = "dotted")+
+  geom_vline(xintercept = -2.5, linetype = "dotted")+
+  geom_vline(xintercept = 3, linetype = "dashed")+
+  geom_vline(xintercept = -3, linetype = "dashed")+
+  theme_bw()
+
+avg_gc_long %>%
+  ggplot(aes(gc, fill = Site))+
+  geom_histogram(bins = 30, position = position_dodge())+
+  theme_bw()
+
+ggplot(avg_gc_long, aes(gazeCond, gc))+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
                position = position_dodge(.5), color = "black")+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
@@ -154,6 +148,15 @@ ggplot(avg_gc_long, aes(Site, gc, color = gazeCond, fill = gazeCond))+
                position = position_dodge(.5), color = "black")+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))
+avg_gc_long %>%
+  #filter(gc_sd < 2.5) %>%
+  ggplot(aes(Site, gc, color = gazeCond))+
+  geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+theme_bw()
 
 # ggplot(avg_gc_long, aes(Site, gc, color = gazeCond, fill = gazeCond, group = subject_nr))+
 #   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
@@ -166,6 +169,17 @@ ggplot(avg_gc_long, aes(Site, gc, color = gazeCond, fill = gazeCond))+
 #   geom_point() +
 #   geom_line() +
 #   theme_bw()
+
+ggplot(avg_gc_long, aes(Site, gc, color = gazeCond))+
+  geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  geom_point() +
+  geom_line(aes(group = interaction(subject_nr, gazeCond))) +
+  theme_bw()
 
 
 # tms with ratings ----
@@ -180,7 +194,7 @@ ggplot(avg_gc_rat, aes(avg_ist, gc, color = gazeCond))+
   theme_bw()+
   facet_wrap(~Site)
 
-ggplot(avg_gc_rat, aes(waytz_score, gc, color = gazeCond))+
+ggplot(avg_gc_rat, aes(waytz_score, avg_ist))+
   geom_point()+
   geom_smooth(method = "lm")+
   theme_bw()+

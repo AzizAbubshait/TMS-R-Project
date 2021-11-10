@@ -27,7 +27,8 @@ waytz = do.call(plyr::rbind.fill, waytz)
 # preprocess
 all_ratings = waytz %>% 
   group_by(subject_nr) %>%
-  summarize(waytz_score = mean(Rating_response), na.rm = T) %>%
+  mutate(Rating_response2 = as.numeric(Rating_response)) %>%
+  summarize(waytz_score = mean(Rating_response2, na.rm = T)) %>%
   left_join(ist_scored, by = "subject_nr")
 
 write.csv(all_ratings, "aggregated_ratings.csv")
