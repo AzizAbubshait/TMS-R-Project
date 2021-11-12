@@ -19,11 +19,13 @@ rand_seq_dat = data.frame(
 # First, we preprocess the data ----
 gc_dat = gc %>% 
   group_by(
-    subject_nr, Session
+    subject_nr, Site
     ) %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
-    accu_percent = sum(correct == 1)/length(correct)
+    accu_percent = sum(correct == 1)/length(correct),
+    rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
     ) %>%
   filter(
     correct == 1,
@@ -32,11 +34,12 @@ gc_dat = gc %>%
     TRIAL_VALID == 1
   ) %>%
   group_by(
-    subject_nr, gazeCond, validity, Session
+    subject_nr, gazeCond, validity, Site
            ) %>% 
-  mutate(
-    rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)) %>%
+  # mutate(
+  #   # rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
+  #   #                      response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
+  #   ) %>%
   filter(
     is.na(rm_trial) == T,
     subject_nr != 0
@@ -67,13 +70,10 @@ gc %>%
     subject_nr, gazeCond, validity, Session
     ) %>% 
     mutate(
-<<<<<<< HEAD
       sd_out = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
-=======
+                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1),
       sd_out = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
                          response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
->>>>>>> acad1564a9877eb21419745fb20584f39a69b523
       ) %>% 
   group_by(
     subject_nr, Session
@@ -314,11 +314,7 @@ avg_gc_long %>%
   select(subject_nr, gazeCond, Session, Site, gc) %>% 
   pivot_wider(names_from = gazeCond, values_from = gc) %>%
   mutate(gc_diff = mutual- avoiding) %>%
-<<<<<<< HEAD
-  ggplot(aes(Site, gc_diff, color = as.factor(subject_nr)))+
-=======
   ggplot(aes(Site, gc_diff))+
->>>>>>> acad1564a9877eb21419745fb20584f39a69b523
   #geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
   #scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
@@ -326,7 +322,7 @@ avg_gc_long %>%
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
   geom_point() +
-  geom_line(aes(group = interaction(as.factor(subject_nr)))) +
+  geom_line(aes(group = as.factor(subject_nr), color = as.factor(subject_nr))) +
   theme_bw()
 
 # tms with ratings ----
@@ -360,4 +356,27 @@ ggplot(avg_gc_rat, aes(gc, avg_ist))+
 ggplot(avg_gc_rat, aes(gc, waytz_score))+
   geom_point()+
   geom_smooth(method = "lm")
+
+# maybe plot Site by instance and Waytz scores
+avg_gc_rat %>%
+  mutate(
+    ist_split = ifelse(avg_ist < mean(avg_gc_rat$avg_ist), "lo", ifelse(
+    avg_ist >= mean(avg_gc_rat$avg_ist), "hi", NA))
+  ) %>%
+  ggplot(aes(Site, gc, color = gazeCond))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
+  facet_wrap(~ist_split)+theme_bw()
+
+avg_gc_rat %>%
+  mutate(
+    waytz_split = ifelse(waytz_score < mean(avg_gc_rat$waytz_score), "lo", ifelse(
+      waytz_score >= mean(avg_gc_rat$waytz_score), "hi", NA))
+  ) %>%
+  ggplot(aes(Site, gc, color = gazeCond))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
+  facet_wrap(~waytz_split)+theme_bw()
 
