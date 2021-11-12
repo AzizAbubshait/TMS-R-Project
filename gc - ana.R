@@ -16,26 +16,24 @@ rand_seq_dat = data.frame(
   subject_nr = c(1:20),
   ran_seq = c(3,2,5,1,6,4,1,2,3,4,5,6,1,2,3,4,5,6,1,2)
 )
-# preprocess
+# First, we preprocess the data ----
 gc_dat = gc %>% 
   group_by(
-    subject_nr
+    subject_nr, Session
     ) %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
     accu_percent = sum(correct == 1)/length(correct)
-    # rand_seq = case_when(Site == "TPJ" & "Session" == > abs(mean(response_time)+3*sd(response_time)) ~ 1, which sequence?
-    #                      response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
     ) %>%
   filter(
     correct == 1,
     response_time > 250,
-    response_time < 1200,
+    response_time < 1500,
     TRIAL_VALID == 1
   ) %>%
   group_by(
     subject_nr, gazeCond, validity, Session
-           ) %>% # get correct trials only
+           ) %>% 
   mutate(
     rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
                          response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)) %>%
@@ -47,30 +45,34 @@ gc_dat = gc %>%
     rand_seq_dat, by = "subject_nr"
   )
 
+# lets see how many ppts we have in each group
 gc %>% group_by(Site) %>%
   filter(subject_nr != 0) %>%
   summarize(n = n_distinct(subject_nr))
 
-# check how many were removed based on SD ----
-
+# Lets now check how many trials we removed from each participant ---- 
 gc %>% 
   group_by(
-    subject_nr
+    subject_nr, Session
   ) %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
-    accu_percent = sum(correct == 1)/length(correct)
-  ) %>%
-  group_by(
-    subject_nr, Session#, gazeCond, validity
-  ) %>% # get correct trials only
-  mutate(
+    accu_percent = sum(correct == 1)/length(correct),
+    accu_percent = sum(correct == 1)/length(correct),
     fast_resp = case_when(response_time <= 250 ~ 1,
                           response_time >= 250 ~ 0),
     slow_resp = case_when(response_time >= 1200 ~ 1,
-                          response_time <= 1200 ~ 0),
-    sd_out = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)) %>% 
+                          response_time <= 1200 ~ 0)) %>%
+  group_by(
+    subject_nr, gazeCond, validity, Session
+    ) %>% 
+    mutate(
+      sd_out = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
+      ) %>% 
+  group_by(
+    subject_nr, Session
+  ) %>%
   summarize(fast_resp = sum(fast_resp == 1, na.rm = T),
             slow_resp = sum(slow_resp == 1, na.rm = T),
             TRIAL_VALID = sum(TRIAL_VALID == 0, na.rm = T),
@@ -79,25 +81,28 @@ gc %>%
   filter(subject_nr != 0) %>%
   mutate(total = fast_resp+slow_resp+TRIAL_VALID+sd_out+err) %>%
   mutate(percent_rm = total/128*100) %>%
-  print()
+  print(n = Inf)
 
+# what about ppts accuracy rate? ----
 gc_dat %>%
-  group_by(subject_nr) %>%
+  group_by(subject_nr, Session) %>%
   summarize(accu = first(accu_percent)) %>%
-  print()
-
+  print(n = Inf)
+# number of trials remaining?
 gc_dat %>% group_by(subject_nr, Site, Session) %>%
-  summarize(n_trials = n())
-gc %>% group_by(subject_nr, Site, Session, validity) %>%
-  summarize(n_trials = n()) %>% print()
+  summarize(n_trials = n()) %>% print(n = Inf)
 
-gc_dat %>% group_by(gazeCond, validity, Site, Session) %>%
-    summarize(rt = mean(response_time)) %>% print()
-
+# now we average to get RTs ----
 avg_gc = gc_dat %>%
-  group_by(subject_nr, validity, gazeCond, Session, Site) %>%
-  mutate(Session = as.factor(Session)) %>%
+  group_by(subject_nr, validity, gazeCond, Session, Site, ran_seq) %>%
+  mutate(Session = as.factor(Session),
+         ran_seq = as.factor(ran_seq)) %>%
   summarize(rt = mean(response_time))
+
+# now lets check some distributions ----
+ggplot(avg_gc, aes(rt, fill = validity))+
+  geom_density(alpha = .3)+theme_bw()+
+  scale_fill_manual(values = cbbPalette)
 
 ggplot(avg_gc, aes(rt, fill = validity))+
   geom_density(alpha = .3)+theme_bw()+
@@ -113,6 +118,21 @@ ggplot(avg_gc, aes(rt, fill = validity))+
   scale_fill_manual(values = cbbPalette)+
   scale_x_continuous(breaks = c(seq(200,1300,50)))
 
+# Now lets look at some plots ----
+
+# Raincloud plot: Stim X Gaze X Validity
+ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
+  geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
+  geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
+  scale_fill_manual(values = cbbPalette)+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5), color = "black")+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  facet_wrap(~Site)
+
+# Raincloud plot: Stim X Gaze X Sequence X validity
 ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
   geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
@@ -124,6 +144,7 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
                position = position_dodge(.5))+
   facet_grid(Session~Site, scales = "free")
 
+# Raincloud plot: Gaze X Sequence X validity
 ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
   geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
@@ -135,6 +156,16 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
                position = position_dodge(.5))+
   facet_wrap(~Session)
 
+# Point-mean plot: Validity X Stim X Gaze
+ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  facet_wrap(~Site)+theme_bw()
+
+# Point-mean plot: Validity X Sequence X Gaze
 ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
@@ -143,14 +174,7 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
                position = position_dodge(.5))+
   facet_wrap(~Session)+theme_bw()
 
-ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
-  scale_color_manual(values = cbbPalette)+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-               position = position_dodge(.5))+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))+
-  facet_wrap(~Site, scales = "free_y")+theme_bw()
-
+# now lets calculate GCE ----
 #avg_gc$rt_scale = scale(avg_gc$rt)
 avg_gc_long = avg_gc %>%
   #select(-rt) %>%
@@ -160,6 +184,7 @@ avg_gc_long = avg_gc %>%
   mutate(diff = diseng - gc) %>% print(n = Inf)
 avg_gc_long$gc_sd = scale(avg_gc_long$gc, center = T, scale = T)
 
+# lets look at GCs in z-scores
 avg_gc_long %>%
   ggplot(aes(gc_sd, fill = Site))+
   geom_histogram(bins = 30, position = position_dodge())+
@@ -248,6 +273,7 @@ avg_gc_long %>%
 #                position = position_dodge(.5))+theme_bw()
 
 avg_gc_long %>%
+  filter(!subject_nr %in% bad_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
@@ -283,15 +309,15 @@ avg_gc_long %>%
   select(subject_nr, gazeCond, Session, Site, gc) %>% 
   pivot_wider(names_from = gazeCond, values_from = gc) %>%
   mutate(gc_diff = mutual- avoiding) %>%
-  ggplot(aes(Site, gc_diff, color = Session))+
+  ggplot(aes(Site, gc_diff, color = as.factor(subject_nr)))+
   #geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
-  scale_color_manual(values = cbbPalette)+
+  #scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
   geom_point() +
-  geom_line(aes(group = interaction(subject_nr))) +
+  geom_line(aes(group = interaction(as.factor(subject_nr)))) +
   theme_bw()
 
 # tms with ratings ----

@@ -17,7 +17,8 @@ ist_scored = ist %>%
   group_by(subject_nr, ï..scenarioNo) %>%
   slice(c(-1)) %>%
   mutate(stand_score = ifelse(Lefttype == "I", 100-rating.response, rating.response)) %>%
-  summarize(avg_ist = mean(stand_score))
+  summarize(avg_ist = mean(stand_score)) %>% drop_na() %>%
+  print(n = Inf) 
 # waytz
 waytz_path = paste(getwd(), "/waytz/", sep = "")
 waytzFiles = list.files(waytz_path)
@@ -27,9 +28,10 @@ waytz = do.call(plyr::rbind.fill, waytz)
 # preprocess
 all_ratings = waytz %>% 
   group_by(subject_nr) %>%
-  mutate(Rating_response2 = as.numeric(Rating_response)) %>%
+  mutate(Rating_response2 = as.numeric(Rating_response, na.rm = T)) %>%
   summarize(waytz_score = mean(Rating_response2, na.rm = T)) %>%
-  left_join(ist_scored, by = "subject_nr")
+  left_join(ist_scored, by = "subject_nr") %>%
+  print(n = Inf)
 
 write.csv(all_ratings, "aggregated_ratings.csv")
 
