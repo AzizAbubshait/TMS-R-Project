@@ -11,7 +11,11 @@ filenames = list.files(gc_path)
 
 gc = lapply(paste(gc_path, filenames, sep = ""), read.csv) 
 gc = do.call(plyr::rbind.fill, gc)
-
+# this is a manual process
+rand_seq_dat = data.frame(
+  subject_nr = c(1:20),
+  ran_seq = c(3,2,5,1,6,4,1,2,3,4,5,6,1,2,3,4,5,6,1,2)
+)
 # preprocess
 gc_dat = gc %>% 
   group_by(
@@ -20,7 +24,7 @@ gc_dat = gc %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
     accu_percent = sum(correct == 1)/length(correct)
-    # seq = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1, which sequence?
+    # rand_seq = case_when(Site == "TPJ" & "Session" == > abs(mean(response_time)+3*sd(response_time)) ~ 1, which sequence?
     #                      response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
     ) %>%
   filter(
@@ -38,7 +42,10 @@ gc_dat = gc %>%
   filter(
     is.na(rm_trial) == T,
     subject_nr != 0
-    )
+    ) %>%
+  left_join(
+    rand_seq_dat, by = "subject_nr"
+  )
 
 gc %>% group_by(Site) %>%
   filter(subject_nr != 0) %>%
@@ -174,7 +181,7 @@ avg_gc_long %>%
 bad_pees = c(12)
 avg_gc_long %>%
 filter(!subject_nr %in% bad_pees) %>%
-ggplot(aes(Session, gc))+
+  ggplot(aes(Session, gc))+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
                position = position_dodge(.5), color = "black")+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
@@ -268,6 +275,23 @@ ggplot(avg_gc_long, aes(Site, gc, color = gazeCond))+
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
+  theme_bw()
+
+# maybe do mutual - avoiding 
+avg_gc_long %>%
+  filter(!subject_nr %in% bad_pees) %>%
+  select(subject_nr, gazeCond, Session, Site, gc) %>% 
+  pivot_wider(names_from = gazeCond, values_from = gc) %>%
+  mutate(gc_diff = mutual- avoiding) %>%
+  ggplot(aes(Site, gc_diff, color = Session))+
+  #geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  geom_point() +
+  geom_line(aes(group = interaction(subject_nr))) +
   theme_bw()
 
 # tms with ratings ----
