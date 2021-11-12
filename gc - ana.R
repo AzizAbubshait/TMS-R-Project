@@ -67,8 +67,13 @@ gc %>%
     subject_nr, gazeCond, validity, Session
     ) %>% 
     mutate(
+<<<<<<< HEAD
       sd_out = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
                          response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
+=======
+      sd_out = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
+>>>>>>> acad1564a9877eb21419745fb20584f39a69b523
       ) %>% 
   group_by(
     subject_nr, Session
@@ -309,7 +314,11 @@ avg_gc_long %>%
   select(subject_nr, gazeCond, Session, Site, gc) %>% 
   pivot_wider(names_from = gazeCond, values_from = gc) %>%
   mutate(gc_diff = mutual- avoiding) %>%
+<<<<<<< HEAD
   ggplot(aes(Site, gc_diff, color = as.factor(subject_nr)))+
+=======
+  ggplot(aes(Site, gc_diff))+
+>>>>>>> acad1564a9877eb21419745fb20584f39a69b523
   #geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
   #scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
