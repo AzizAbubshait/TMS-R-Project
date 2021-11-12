@@ -61,11 +61,10 @@ gc %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
     accu_percent = sum(correct == 1)/length(correct),
-    accu_percent = sum(correct == 1)/length(correct),
     fast_resp = case_when(response_time <= 250 ~ 1,
                           response_time >= 250 ~ 0),
-    slow_resp = case_when(response_time >= 1000 ~ 1,
-                          response_time <= 1000 ~ 0)) %>%
+    slow_resp = case_when(response_time >= 1500 ~ 1,
+                          response_time <= 1500 ~ 0)) %>%
   group_by(
     subject_nr, gazeCond, validity, Session
     ) %>% 
