@@ -3,7 +3,6 @@ library(PupillometryR)
 # load packages
 
 cbbPalette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-# load packages
 
 # gc pre-process ----
 gc_path = paste(getwd(), "/raw gc/", sep = "")
@@ -27,13 +26,13 @@ gc_dat = gc %>%
     ) %>%
   filter(
     correct == 1,
-    response_time > 150,
+    response_time > 250,
     response_time < 1200,
     TRIAL_VALID == 1
   ) %>%
   mutate(
-    rm_trial = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
+    rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
   ) %>%
   group_by(
     subject_nr, gazeCond, validity, Site
@@ -167,7 +166,7 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
-  facet_wrap(~Site)+theme_bw()
+  facet_wrap(~Site, scales = "free")+theme_bw()
 
 # Point-mean plot: Validity X Sequence X Gaze
 ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
