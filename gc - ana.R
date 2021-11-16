@@ -13,8 +13,8 @@ gc = lapply(paste(gc_path, filenames, sep = ""), read.csv)
 gc = do.call(plyr::rbind.fill, gc)
 # this is a manual process
 rand_seq_dat = data.frame(
-  subject_nr = c(1:20),
-  ran_seq = c(3,2,5,1,6,4,1,2,3,4,5,6,1,2,3,4,5,6,1,2)
+  subject_nr = c(1:24),
+  ran_seq = c(3,2,5,1,6,4,1:6,1:6,1:6)
 )
 # First, we preprocess the data ----
 gc_dat = gc %>% 
@@ -23,15 +23,17 @@ gc_dat = gc %>%
     ) %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
-    accu_percent = sum(correct == 1)/length(correct),
-    rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
+    accu_percent = sum(correct == 1)/length(correct)
     ) %>%
   filter(
     correct == 1,
-    response_time > 200,
-    response_time < 1500,
+    response_time > 150,
+    response_time < 1200,
     TRIAL_VALID == 1
+  ) %>%
+  mutate(
+    rm_trial = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
   ) %>%
   group_by(
     subject_nr, gazeCond, validity, Site
@@ -61,8 +63,8 @@ gc %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
     accu_percent = sum(correct == 1)/length(correct),
-    fast_resp = case_when(response_time <= 250 ~ 1,
-                          response_time >= 250 ~ 0),
+    fast_resp = case_when(response_time <= 150 ~ 1,
+                          response_time >= 150 ~ 0),
     slow_resp = case_when(response_time >= 1500 ~ 1,
                           response_time <= 1500 ~ 0)) %>%
   group_by(
@@ -278,11 +280,10 @@ avg_gc_long %>%
   filter(!subject_nr %in% bad_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-               position = position_dodge(.5))+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))+theme_bw()+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5
+               )+theme_bw()+
   facet_wrap(~subject_nr, scales = "free_y")+
+  geom_line(aes(group = Site))+
   geom_hline(yintercept = 0, linetype = "dashed")
 
 ggplot(avg_gc_long, aes(Site, gc, color = gazeCond))+
