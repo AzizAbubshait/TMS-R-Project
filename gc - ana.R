@@ -34,8 +34,8 @@ gc_dat = gc %>%
     TRIAL_VALID == 1
   ) %>%
   mutate(
-    rm_trial = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
+    rm_trial = case_when(response_time > abs(mean(response_time)+2*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-2*sd(response_time)) ~ 1)
   ) %>%
   group_by(
     subject_nr, gazeCond, validity, Site
@@ -53,7 +53,7 @@ gc_dat = gc %>%
   )
 
 # lets see how many ppts we have in each group
-gc %>% group_by(Site) %>%
+gc %>% group_by(Session) %>%
   filter(subject_nr != 0) %>%
   summarize(n = n_distinct(subject_nr))
 
@@ -169,7 +169,7 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
-  facet_wrap(~Site)+theme_bw()
+  facet_wrap(~Site, scales = "free")+theme_bw()
 
 # Point-mean plot: Validity X Sequence X Gaze
 ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
@@ -210,7 +210,7 @@ avg_gc_long %>%
   geom_vline(xintercept = quantile(avg_gc_long$gc)[5], linetype = "dashed", size = 1)+
   theme_bw()
 
-bad_pees = c(12, 2, 3, 14)
+bad_pees = c(12)
 good_pees = c(1, 6, 9, 10, 15, 16, 21)
 
 avg_gc_long %>%
@@ -220,6 +220,15 @@ avg_gc_long %>%
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))
+
+avg_gc_long %>%
+  #  filter(!subject_nr %in% bad_pees) %>%
+  ggplot(aes(Site, gc, color = gazeCond))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  facet_wrap(~ran_seq)
 
 avg_gc_long %>%
   #filter(!subject_nr %in% bad_pees) %>%
@@ -252,8 +261,8 @@ avg_gc_long %>%
 #                position = position_dodge(.5))
 
 avg_gc_long %>%
-  #filter(!subject_nr %in% bad_pees) %>%
-  filter(subject_nr %in% good_pees) %>%
+  filter(!subject_nr %in% bad_pees) %>%
+  #filter(subject_nr %in% good_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond, fill = gazeCond))+
   geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
@@ -277,7 +286,7 @@ avg_gc_long %>%
 
 avg_gc_long %>%
   filter(
- #   !subject_nr %in% bad_pees,
+    !subject_nr %in% bad_pees,
 #    !ran_seq %in% c("5","6")
          ) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
@@ -386,22 +395,23 @@ ggplot(avg_gc_rat, aes(gc, waytz_score))+
   geom_smooth(method = "lm")
 
 # maybe plot Site by instance and Waytz scores
-avg_gc_rat %>%
+avg_gc_rat2 = avg_gc_rat %>%
   mutate(
-    ist_split = ifelse(avg_ist < mean(avg_gc_rat$avg_ist), "lo", ifelse(
-    avg_ist >= mean(avg_gc_rat$avg_ist), "hi", NA))
-  ) %>%
+    ist_split = case_when(avg_ist < quantile(avg_gc_rat$avg_ist, na.rm = T)[2] ~ "lo",
+                          avg_ist > quantile(avg_gc_rat$avg_ist, na.rm = T)[4] ~ "hi"),
+    # 
+    # waytz_split = ifelse(waytz_score < quantile(avg_gc_rat$waytz_score, na.rm = T)[2],"lo", 
+    #                      ifelse(waytz_score > quantile(avg_gc_rat$waytz_score, na.rm = T)[3], "hi", NA))
+    ) %>% drop_na()
+
+avg_gc_rat2 %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
   stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
   facet_wrap(~ist_split)+theme_bw()
 
-avg_gc_rat %>%
-  mutate(
-    waytz_split = ifelse(waytz_score < mean(avg_gc_rat$waytz_score), "lo", ifelse(
-      waytz_score >= mean(avg_gc_rat$waytz_score), "hi", NA))
-  ) %>%
+avg_gc_rat2 %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
