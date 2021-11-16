@@ -3,7 +3,6 @@ library(PupillometryR)
 # load packages
 
 cbbPalette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-# load packages
 
 # gc pre-process ----
 gc_path = paste(getwd(), "/raw gc/", sep = "")
@@ -16,6 +15,9 @@ rand_seq_dat = data.frame(
   subject_nr = c(1:24),
   ran_seq = c(3,2,5,1,6,4,1:6,1:6,1:6)
 )
+
+# ppt sequence
+
 # First, we preprocess the data ----
 gc_dat = gc %>% 
   group_by(
@@ -27,7 +29,7 @@ gc_dat = gc %>%
     ) %>%
   filter(
     correct == 1,
-    response_time > 150,
+    response_time > 250,
     response_time < 1200,
     TRIAL_VALID == 1
   ) %>%
@@ -187,6 +189,7 @@ avg_gc_long = avg_gc %>%
          diseng = valid+invalid) %>% 
   mutate(diff = diseng - gc) %>% print(n = Inf)
 avg_gc_long$gc_sd = scale(avg_gc_long$gc, center = T, scale = T)
+avg_gc_long$ran_seq = factor(avg_gc_long$ran_seq, levels = c(1:6))
 
 # lets look at GCs in z-scores
 avg_gc_long %>%
@@ -207,9 +210,20 @@ avg_gc_long %>%
   geom_vline(xintercept = quantile(avg_gc_long$gc)[5], linetype = "dashed", size = 1)+
   theme_bw()
 
-bad_pees = c(12)
+bad_pees = c(12, 2, 3, 14)
+good_pees = c(1, 6, 9, 10, 15, 16, 21)
+
 avg_gc_long %>%
-filter(!subject_nr %in% bad_pees) %>%
+#  filter(!subject_nr %in% bad_pees) %>%
+  ggplot(aes(ran_seq, gc, color = gazeCond))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))
+
+avg_gc_long %>%
+  #filter(!subject_nr %in% bad_pees) %>%
+  filter(subject_nr %in% good_pees) %>%
   ggplot(aes(Session, gc))+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
                position = position_dodge(.5), color = "black")+
@@ -217,7 +231,8 @@ filter(!subject_nr %in% bad_pees) %>%
                position = position_dodge(.5))
 
 avg_gc_long %>%
-  filter(!subject_nr %in% bad_pees) %>%
+  #filter(!subject_nr %in% bad_pees) %>%
+  filter(subject_nr %in% good_pees) %>%
   ggplot(aes(Session, gc, color = gazeCond))+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
                position = position_dodge(.5))+
@@ -237,7 +252,8 @@ avg_gc_long %>%
 #                position = position_dodge(.5))
 
 avg_gc_long %>%
-  filter(!subject_nr %in% bad_pees) %>%
+  #filter(!subject_nr %in% bad_pees) %>%
+  filter(subject_nr %in% good_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond, fill = gazeCond))+
   geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
@@ -250,6 +266,20 @@ avg_gc_long %>%
 
 avg_gc_long %>%
   filter(!subject_nr %in% bad_pees) %>%
+  ggplot(aes(Site, gc, color = gazeCond))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+theme_bw()+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  facet_wrap(~ran_seq)
+
+avg_gc_long %>%
+  filter(
+ #   !subject_nr %in% bad_pees,
+#    !ran_seq %in% c("5","6")
+         ) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
