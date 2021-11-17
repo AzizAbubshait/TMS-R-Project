@@ -30,20 +30,16 @@ gc_dat = gc %>%
   filter(
     correct == 1,
     response_time > 250,
-    response_time < 1200,
+    response_time < 1500,
     TRIAL_VALID == 1
-  ) %>%
-  mutate(
-    rm_trial = case_when(response_time > abs(mean(response_time)+2*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-2*sd(response_time)) ~ 1)
   ) %>%
   group_by(
     subject_nr, gazeCond, validity, Site
            ) %>% 
-  # mutate(
-  #   # rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
-  #   #                      response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
-  #   ) %>%
+  mutate(
+    rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
+    ) %>%
   filter(
     is.na(rm_trial) == T,
     subject_nr != 0
@@ -221,23 +217,6 @@ avg_gc_long %>%
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))
 
-avg_gc_long %>%
-  #  filter(!subject_nr %in% bad_pees) %>%
-  ggplot(aes(Site, gc, color = gazeCond))+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-               position = position_dodge(.5))+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))+
-  facet_wrap(~ran_seq)
-
-avg_gc_long %>%
-  #filter(!subject_nr %in% bad_pees) %>%
-  filter(subject_nr %in% good_pees) %>%
-  ggplot(aes(Session, gc))+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-               position = position_dodge(.5), color = "black")+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))
 
 avg_gc_long %>%
   #filter(!subject_nr %in% bad_pees) %>%
@@ -248,11 +227,12 @@ avg_gc_long %>%
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))
 
-# ggplot(avg_gc_long, aes(gazeCond, diseng))+
-#   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-#                position = position_dodge(.5), color = "black")+
-#   stat_summary(fun.data = mean_se, geom = "point", size = 5,
-#                position = position_dodge(.5))
+ggplot(avg_gc_long, aes(gazeCond, diseng))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
+               position = position_dodge(.5), color = "black")+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  facet_wrap(Site~Session)
 # 
 # ggplot(avg_gc_long, aes(gazeCond, diff))+
 #   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
@@ -286,7 +266,7 @@ avg_gc_long %>%
 
 avg_gc_long %>%
   filter(
-    !subject_nr %in% bad_pees,
+  #  !subject_nr %in% bad_pees,
 #    !ran_seq %in% c("5","6")
          ) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
@@ -345,6 +325,14 @@ ggplot(avg_gc_long, aes(Site, gc, color = gazeCond))+
                position = position_dodge(.5))+
   theme_bw()
 
+ggplot(avg_gc_long, aes(gazeCond, gc, color = gazeCond))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  theme_bw()+facet_wrap(Site~Session)
+
 # maybe do mutual - avoiding 
 avg_gc_long %>%
   filter(!subject_nr %in% bad_pees) %>%
@@ -397,11 +385,18 @@ ggplot(avg_gc_rat, aes(gc, waytz_score))+
 # maybe plot Site by instance and Waytz scores
 avg_gc_rat2 = avg_gc_rat %>%
   mutate(
-    ist_split = case_when(avg_ist < quantile(avg_gc_rat$avg_ist, na.rm = T)[2] ~ "lo",
-                          avg_ist > quantile(avg_gc_rat$avg_ist, na.rm = T)[4] ~ "hi"),
-    # 
-    # waytz_split = ifelse(waytz_score < quantile(avg_gc_rat$waytz_score, na.rm = T)[2],"lo", 
-    #                      ifelse(waytz_score > quantile(avg_gc_rat$waytz_score, na.rm = T)[3], "hi", NA))
+    ist_median = case_when(avg_ist < mean(avg_gc_rat$avg_ist, na.rm = T) ~ "lo",
+                          avg_ist > mean(avg_gc_rat$avg_ist, na.rm = T) ~ "hi"),
+    waytz_median = case_when(waytz_score < mean(avg_gc_rat$waytz_score, na.rm = T) ~ "lo",
+                             waytz_score > mean(avg_gc_rat$waytz_score, na.rm = T) ~ "hi"),
+    ist_quart = case_when(avg_ist <= quantile(avg_gc_rat$avg_ist, na.rm = T)[2] ~ "lo",
+                           avg_ist >= quantile(avg_gc_rat$avg_ist, na.rm = T)[4] ~ "hi",
+                           avg_ist > quantile(avg_gc_rat$avg_ist, na.rm = T)[2] |
+                             avg_ist < quantile(avg_gc_rat$avg_ist, na.rm = T)[4] ~ "mid"),
+    waytz_quart = case_when(waytz_score <= quantile(avg_gc_rat$waytz_score, na.rm = T)[2] ~ "lo",
+                            waytz_score >= quantile(avg_gc_rat$waytz_score, na.rm = T)[4] ~ "hi",
+                            waytz_score > quantile(avg_gc_rat$waytz_score, na.rm = T)[2] |
+                              waytz_score < quantile(avg_gc_rat$waytz_score, na.rm = T)[4] ~ "mid")
     ) %>% drop_na()
 
 avg_gc_rat2 %>%
@@ -409,12 +404,12 @@ avg_gc_rat2 %>%
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
   stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
-  facet_wrap(~ist_split)+theme_bw()
+  facet_wrap(~ist_median)+theme_bw()
 
 avg_gc_rat2 %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
   stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
-  facet_wrap(~waytz_split)+theme_bw()
+  facet_wrap(~waytz_median)+theme_bw()
 
