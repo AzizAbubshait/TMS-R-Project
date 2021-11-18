@@ -117,8 +117,7 @@ ggplot(avg_gc, aes(rt, fill = validity))+
 
 ggplot(avg_gc, aes(rt, fill = validity))+
   geom_histogram(color = "black")+theme_bw()+
-  scale_fill_manual(values = cbbPalette)+
-  scale_x_continuous(breaks = c(seq(200,1300,50)))
+  scale_fill_manual(values = cbbPalette)
 
 # Now lets look at some plots ----
 
@@ -206,7 +205,7 @@ avg_gc_long %>%
   geom_vline(xintercept = quantile(avg_gc_long$gc)[5], linetype = "dashed", size = 1)+
   theme_bw()
 
-bad_pees = c(12)
+bad_pees = c(12, 15)
 good_pees = c(1, 6, 9, 10, 15, 16, 21)
 
 avg_gc_long %>%
@@ -266,8 +265,8 @@ avg_gc_long %>%
 
 avg_gc_long %>%
   filter(
-  #  !subject_nr %in% bad_pees,
-#    !ran_seq %in% c("5","6")
+   #!subject_nr %in% bad_pees,
+   #!ran_seq %in% c(5,6)
          ) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
@@ -331,7 +330,7 @@ ggplot(avg_gc_long, aes(gazeCond, gc, color = gazeCond))+
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
-  theme_bw()+facet_wrap(Site~Session)
+  theme_bw()+facet_wrap(Site~Session, scales = "free")
 
 # maybe do mutual - avoiding 
 avg_gc_long %>%
@@ -350,12 +349,26 @@ avg_gc_long %>%
   geom_line(aes(group = as.factor(subject_nr), color = as.factor(subject_nr))) +
   theme_bw()
 
+avg_gc_long %>%
+  filter(!subject_nr %in% bad_pees,
+         !ran_seq %in% c(5,6)) %>%
+  select(subject_nr, gazeCond, Session, Site, gc) %>% 
+  pivot_wider(names_from = gazeCond, values_from = gc) %>%
+  mutate(gc_diff = mutual- avoiding) %>%
+  ggplot(aes(Site, gc_diff, color = Session))+
+  geom_jitter(width = .1, alpha = .4, size = 3)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  theme_bw()
+
 # tms with ratings ----
 rat_dat = read.csv("aggregated_ratings.csv")
 
 avg_gc_rat = avg_gc_long %>%
-  left_join(rat_dat, by = "subject_nr") %>%
-  filter(!subject_nr %in% bad_pees) 
+  left_join(rat_dat, by = "subject_nr") %>% print(n = Inf)
+#  filter(!subject_nr %in% bad_pees) 
 
 ggplot(avg_gc_rat, aes(avg_ist, gc, color = gazeCond))+
   geom_point()+
@@ -397,7 +410,11 @@ avg_gc_rat2 = avg_gc_rat %>%
                             waytz_score >= quantile(avg_gc_rat$waytz_score, na.rm = T)[4] ~ "hi",
                             waytz_score > quantile(avg_gc_rat$waytz_score, na.rm = T)[2] |
                               waytz_score < quantile(avg_gc_rat$waytz_score, na.rm = T)[4] ~ "mid")
-    ) %>% drop_na()
+    ) %>% mutate(
+      ist_quart = factor(ist_quart, levels = c("lo","mid","hi")),
+      waytz_quart = factor(waytz_quart, levels = c("lo", "mid", "hi"))
+    ) %>%
+      drop_na()
 
 avg_gc_rat2 %>%
   ggplot(aes(Site, gc, color = gazeCond))+
@@ -412,4 +429,18 @@ avg_gc_rat2 %>%
   stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
   stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
   facet_wrap(~waytz_median)+theme_bw()
+
+avg_gc_rat2 %>%
+  ggplot(aes(Site, gc, color = gazeCond))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
+  facet_wrap(~ist_quart)+theme_bw()
+
+avg_gc_rat2 %>%
+  ggplot(aes(Site, gc, color = gazeCond))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
+  facet_wrap(~waytz_quart)+theme_bw()
 
