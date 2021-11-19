@@ -1,5 +1,6 @@
 library(tidyverse)
 library(PupillometryR)
+
 # load packages
 
 cbbPalette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -10,13 +11,12 @@ filenames = list.files(gc_path)
 
 gc = lapply(paste(gc_path, filenames, sep = ""), read.csv) 
 gc = do.call(plyr::rbind.fill, gc)
-# this is a manual process
+
+# ppt sequence. this is a manual process
 rand_seq_dat = data.frame(
   subject_nr = c(1:24),
   ran_seq = c(3,2,5,1,6,4,1:6,1:6,1:6)
 )
-
-# ppt sequence
 
 # First, we preprocess the data ----
 gc_dat = gc %>% 
@@ -29,16 +29,16 @@ gc_dat = gc %>%
     ) %>%
   filter(
     correct == 1,
-    response_time > 250,
+    response_time > 150,
     response_time < 1500,
     TRIAL_VALID == 1
   ) %>%
   group_by(
-    subject_nr, gazeCond, validity, Site
+    subject_nr, gazeCond, Site
            ) %>% 
   mutate(
-    rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
+    rm_trial = case_when(response_time > abs(mean(response_time)+2*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-2*sd(response_time)) ~ 1)
     ) %>%
   filter(
     is.na(rm_trial) == T,
@@ -53,6 +53,15 @@ gc %>% group_by(Session) %>%
   filter(subject_nr != 0) %>%
   summarize(n = n_distinct(subject_nr))
 
+gc %>% group_by(Site) %>%
+  filter(subject_nr != 0) %>%
+  summarize(n = n_distinct(subject_nr))
+# how many full data sets?
+gc %>% group_by(Session) %>%
+  filter(subject_nr != 0,
+         Session == 3) %>%
+  summarize(n = n_distinct(subject_nr))
+
 # Lets now check how many trials we removed from each participant ---- 
 gc %>% 
   group_by(
@@ -61,16 +70,16 @@ gc %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
     accu_percent = sum(correct == 1)/length(correct),
-    fast_resp = case_when(response_time <= 150 ~ 1,
-                          response_time >= 150 ~ 0),
-    slow_resp = case_when(response_time >= 1500 ~ 1,
-                          response_time <= 1500 ~ 0)) %>%
+    fast_resp = case_when(response_time <= 200 ~ 1,
+                          response_time >= 200 ~ 0),
+    slow_resp = case_when(response_time >= 2000 ~ 1,
+                          response_time <= 2000 ~ 0)) %>%
   group_by(
     subject_nr, gazeCond, validity, Session
     ) %>% 
     mutate(
-      sd_out = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
+      sd_out = case_when(response_time > abs(mean(response_time)+2*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-2*sd(response_time)) ~ 1)
       ) %>% 
   group_by(
     subject_nr, Session
@@ -89,6 +98,7 @@ gc %>%
 gc_dat %>%
   group_by(subject_nr, Session) %>%
   summarize(accu = first(accu_percent)) %>%
+  mutate(accu_sd = sd(accu)) %>%
   print(n = Inf)
 # number of trials remaining?
 gc_dat %>% group_by(subject_nr, Site, Session) %>%
@@ -135,7 +145,6 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
 
 # Raincloud plot: Stim X Gaze X Sequence X validity
 ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
-  geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
   scale_fill_manual(values = cbbPalette)+
   scale_color_manual(values = cbbPalette)+
@@ -144,18 +153,6 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
   facet_grid(Session~Site, scales = "free")
-
-# Raincloud plot: Gaze X Sequence X validity
-ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
-  geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
-  geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
-  scale_fill_manual(values = cbbPalette)+
-  scale_color_manual(values = cbbPalette)+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-               position = position_dodge(.5), color = "black")+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))+
-  facet_wrap(~Session)
 
 # Point-mean plot: Validity X Stim X Gaze
 ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
@@ -205,8 +202,7 @@ avg_gc_long %>%
   geom_vline(xintercept = quantile(avg_gc_long$gc)[5], linetype = "dashed", size = 1)+
   theme_bw()
 
-bad_pees = c(12, 15)
-good_pees = c(1, 6, 9, 10, 15, 16, 21)
+bad_pees = c(12, 15, 17, 21, 8, 13)
 
 avg_gc_long %>%
 #  filter(!subject_nr %in% bad_pees) %>%
@@ -219,7 +215,6 @@ avg_gc_long %>%
 
 avg_gc_long %>%
   #filter(!subject_nr %in% bad_pees) %>%
-  filter(subject_nr %in% good_pees) %>%
   ggplot(aes(Session, gc, color = gazeCond))+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
                position = position_dodge(.5))+
@@ -232,15 +227,15 @@ ggplot(avg_gc_long, aes(gazeCond, diseng))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
   facet_wrap(Site~Session)
-# 
-# ggplot(avg_gc_long, aes(gazeCond, diff))+
-#   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-#                position = position_dodge(.5), color = "black")+
-#   stat_summary(fun.data = mean_se, geom = "point", size = 5,
-#                position = position_dodge(.5))
+
+ggplot(avg_gc_long, aes(gazeCond, diff))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
+               position = position_dodge(.5), color = "black")+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))
 
 avg_gc_long %>%
-  filter(!subject_nr %in% bad_pees) %>%
+  #filter(!subject_nr %in% bad_pees) %>%
   #filter(subject_nr %in% good_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond, fill = gazeCond))+
   geom_flat_violin(position = position_nudge(.2), alpha = .4, lwd = .5, color = "black")+theme_bw()+
@@ -264,10 +259,7 @@ avg_gc_long %>%
   facet_wrap(~ran_seq)
 
 avg_gc_long %>%
-  filter(
-   #!subject_nr %in% bad_pees,
-   #!ran_seq %in% c(5,6)
-         ) %>%
+  filter(!subject_nr %in% bad_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
@@ -275,6 +267,9 @@ avg_gc_long %>%
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+theme_bw()+
   geom_hline(yintercept = 0, linetype = "dashed")
+
+afex::aov_car(gc ~ gazeCond*Site + Error(subject_nr/gazeCond*Site), avg_gc_long)
+anova(lme4::lmer(gc ~ gazeCond*Site + (1|subject_nr), avg_gc_long))
 
 # avg_gc_long %>%
 #   filter(!subject_nr %in% bad_pees) %>%
@@ -303,17 +298,6 @@ avg_gc_long %>%
   facet_wrap(~subject_nr, scales = "free_y")+
   geom_line(aes(group = Site))+
   geom_hline(yintercept = 0, linetype = "dashed")
-
-ggplot(avg_gc_long, aes(Site, gc, color = gazeCond))+
-  #geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
-  scale_color_manual(values = cbbPalette)+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
-               position = position_dodge(.5))+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))+
-  geom_point() +
-  geom_line(aes(group = interaction(subject_nr, gazeCond))) +
-  theme_bw()
 
 ggplot(avg_gc_long, aes(Site, gc, color = gazeCond))+
   geom_point(position = position_jitterdodge(jitter.width = .1,dodge.width = 0.5), alpha = .4)+
@@ -351,7 +335,8 @@ avg_gc_long %>%
 
 avg_gc_long %>%
   filter(!subject_nr %in% bad_pees,
-         !ran_seq %in% c(5,6)) %>%
+         #!ran_seq %in% c(5,6)
+         ) %>%
   select(subject_nr, gazeCond, Session, Site, gc) %>% 
   pivot_wider(names_from = gazeCond, values_from = gc) %>%
   mutate(gc_diff = mutual- avoiding) %>%
@@ -388,6 +373,10 @@ ggplot(avg_gc_rat, aes(waytz_score, avg_ist))+
   theme_bw()
 
 ggplot(avg_gc_rat, aes(gc, avg_ist))+
+  geom_point()+
+  geom_smooth(method = "lm")
+
+ggplot(avg_gc_rat, aes(gc, avg_ist, color = gazeCond))+
   geom_point()+
   geom_smooth(method = "lm")
 
