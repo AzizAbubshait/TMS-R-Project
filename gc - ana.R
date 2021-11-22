@@ -14,8 +14,8 @@ gc = do.call(plyr::rbind.fill, gc)
 
 # ppt sequence. this is a manual process
 rand_seq_dat = data.frame(
-  subject_nr = c(1:24),
-  ran_seq = c(3,2,5,1,6,4,1:6,1:6,1:6)
+  subject_nr = c(1:30),
+  ran_seq = c(3,2,5,1,6,4,1:6,1:6,1:6,1:6)
 )
 
 # First, we preprocess the data ----
@@ -37,8 +37,8 @@ gc_dat = gc %>%
     subject_nr, gazeCond, Site, validity
            ) %>% 
   mutate(
-    rm_trial = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
+    rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
     ) %>%
   filter(
     is.na(rm_trial) == T,
@@ -103,6 +103,7 @@ gc %>%
 acc_dat = gc_dat %>%
   group_by(subject_nr, Session) %>%
   summarize(accu = first(accu_percent)) %>% print(n = Inf)
+
 acc_dat %>%
   ggplot(aes(accu))+
   geom_histogram()+
@@ -216,7 +217,7 @@ avg_gc_long %>%
   theme_bw()
 
 bad_pees = c(
-  13,1 # high error rate (more than 3 SDs beyond the avg error rate)
+  13,1,12 # high error rate (more than 3 SDs beyond the avg error rate)
   #12 # GCE lower than the 4th quartile range
   )
 
@@ -295,7 +296,9 @@ avg_gc_long %>%
 avg_gc_long_ana = avg_gc_long %>% filter(!subject_nr %in% bad_pees) 
 afex::aov_car(gc ~ gazeCond*Site + Error(subject_nr/gazeCond*Site), avg_gc_long_ana)
 anova(lme4::lmer(gc ~ gazeCond*Site + (1|subject_nr), avg_gc_long_ana))
+anova(lme4::lmer(gc ~ gazeCond*Site + (1|gazeCond) + (1|subject_nr), avg_gc_long_ana))
 anova(lme4::lmer(gc ~ gazeCond*Site + (1|subject_nr/gazeCond), avg_gc_long_ana))
+anova(lme4::lmer(gc ~ gazeCond*Site + (gazeCond||subject_nr), avg_gc_long_ana))
 
 # avg_gc_long %>%
 #   filter(!subject_nr %in% bad_pees) %>%
@@ -378,7 +381,8 @@ avg_gc_long %>%
 rat_dat = read.csv("aggregated_ratings.csv")
 
 avg_gc_rat = avg_gc_long %>%
-  left_join(rat_dat, by = "subject_nr") %>% print(n = Inf) %>% filter(!subject_nr %in% bad_pees) 
+  left_join(rat_dat, by = "subject_nr") %>% print(n = Inf) %>% 
+  filter(!subject_nr %in% bad_pees) 
 
 ggplot(avg_gc_rat, aes(avg_ist, gc, color = gazeCond))+
   geom_point()+
