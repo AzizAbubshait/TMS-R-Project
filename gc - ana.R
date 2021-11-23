@@ -1,6 +1,7 @@
 library(tidyverse)
 library(PupillometryR)
 
+#rm(list = ls())
 # load packages
 
 cbbPalette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -30,7 +31,7 @@ gc_dat = gc %>%
   filter(
     correct == 1,
     response_time > 200,
-    response_time < 1500,
+    response_time < 1200,
     TRIAL_VALID == 1
   ) %>%
   group_by(
@@ -217,7 +218,7 @@ avg_gc_long %>%
   theme_bw()
 
 bad_pees = c(
-  13,1,12 # high error rate (more than 3 SDs beyond the avg error rate)
+  13 # high error rate (more than 3 SDs beyond the avg error rate)
   #12 # GCE lower than the 4th quartile range
   )
 
@@ -247,19 +248,6 @@ avg_gc_long %>%
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))
 
-ggplot(avg_gc_long, aes(gazeCond, diseng))+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
-               position = position_dodge(.5), color = "black")+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))+
-  facet_wrap(Site~Session, scales = "free")
-
-ggplot(avg_gc_long, aes(gazeCond, diff))+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
-               position = position_dodge(.5), color = "black")+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.5))
-
 avg_gc_long %>%
   #filter(!subject_nr %in% bad_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond, fill = gazeCond))+
@@ -284,7 +272,7 @@ avg_gc_long %>%
   facet_wrap(~ran_seq)
 
 avg_gc_long %>%
-  filter(!subject_nr %in% bad_pees) %>%
+  #filter(!subject_nr %in% bad_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
