@@ -30,16 +30,16 @@ gc_dat = gc %>%
     ) %>%
   filter(
     correct == 1,
-    response_time > 200,
-    response_time < 1200,
+    response_time > 250,
+    response_time < 1500,
     TRIAL_VALID == 1
   ) %>%
   group_by(
     subject_nr, gazeCond, Site, validity
            ) %>% 
   mutate(
-    rm_trial = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1)
+    rm_trial = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
     ) %>%
   filter(
     is.na(rm_trial) == T,
@@ -78,8 +78,8 @@ gc %>%
     accu_percent = sum(correct == 1)/length(correct),
     fast_resp = case_when(response_time <= 200 ~ 1,
                           response_time >= 200 ~ 0),
-    slow_resp = case_when(response_time >= 1000 ~ 1,
-                          response_time <= 1000 ~ 0)) %>%
+    slow_resp = case_when(response_time >= 1500 ~ 1,
+                          response_time <= 1500 ~ 0)) %>%
   group_by(
     subject_nr, gazeCond, validity, Session
     ) %>% 
@@ -92,11 +92,11 @@ gc %>%
   ) %>%
   summarize(fast_resp = sum(fast_resp == 1, na.rm = T),
             slow_resp = sum(slow_resp == 1, na.rm = T),
-            TRIAL_VALID = sum(TRIAL_VALID == 0, na.rm = T),
+            rob_fail = sum(TRIAL_VALID == 0, na.rm = T),
             sd_out = sum(sd_out == 1, na.rm = T),
             err = sum(correct == 0, na.rm = T)) %>%
   filter(subject_nr != 0) %>%
-  mutate(total = fast_resp+slow_resp+TRIAL_VALID+sd_out+err) %>%
+  mutate(total = fast_resp+slow_resp+rob_fail+sd_out+err) %>%
   mutate(percent_rm = total/128*100) %>%
   print(n = Inf)
 
@@ -272,7 +272,7 @@ avg_gc_long %>%
   facet_wrap(~ran_seq)
 
 avg_gc_long %>%
-  #filter(!subject_nr %in% bad_pees) %>%
+  filter(!subject_nr %in% bad_pees) %>%
   ggplot(aes(Site, gc, color = gazeCond))+
   scale_color_manual(values = cbbPalette)+
   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
