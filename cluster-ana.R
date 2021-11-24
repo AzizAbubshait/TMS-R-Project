@@ -2,6 +2,8 @@ library(tidyverse)
 library(factoextra)
 library(gridExtra)
 
+rm(list = ls())
+
 # K means analysis ----
 # gc pre-process ----
 gc_path = paste(getwd(), "/raw gc/", sep = "")
@@ -79,7 +81,7 @@ gap_stat = clusGap(df_cluster, FUN = kmeans, nstart = 25,
 print(gap_stat, method = "firstmax")
 fviz_gap_stat(gap_stat)
 
-final = kmeans(df_cluster, 3, nstart = 25)
+final = kmeans(df_cluster, 2, nstart = 25)
 print(final)
 fviz_cluster(final, data = df_cluster)
 
@@ -92,15 +94,8 @@ df_cluster = as.data.frame(df_cluster)
 df_cluster_2 = df_cluster %>%
   mutate(Cluster = final$cluster) 
 
-df_cluster_3 = df_cluster_2 %>%
-  tibble::rownames_to_column("Prolific.ID") %>%
-  select(Prolific.ID, Cluster) %>%
-  left_join(df_clean, by = "Prolific.ID")
+gc_cluster_data = df_cluster_2 %>%
+  tibble::rownames_to_column("subject_nr") %>%
+  select(subject_nr, Cluster) 
 
-ggplot(df_cluster_3, aes(y = keyRespT.rt, x = stance, color = block))+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1,
-               position = position_dodge(.9))+
-  stat_summary(fun.data = mean_se, geom = "point", size = 5,
-               position = position_dodge(.9))+ 
-  scale_color_manual(values = cbbPalette)+theme_bw()+
-  facet_wrap(~Cluster)
+write.csv(gc_cluster_data, "cluster_data.csv")

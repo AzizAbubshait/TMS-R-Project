@@ -1,7 +1,7 @@
 library(tidyverse)
 library(PupillometryR)
 
-#rm(list = ls())
+rm(list = ls())
 # load packages
 
 cbbPalette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -18,6 +18,7 @@ rand_seq_dat = data.frame(
   subject_nr = c(1:30),
   ran_seq = c(3,2,5,1,6,4,1:6,1:6,1:6,1:6)
 )
+cluster_dat = read.csv("cluster_data.csv")
 
 # First, we preprocess the data ----
 gc_dat = gc %>% 
@@ -47,7 +48,8 @@ gc_dat = gc %>%
     ) %>%
   left_join(
     rand_seq_dat, by = "subject_nr"
-  )
+  ) %>%
+  left_join(cluster_dat, by = "subject_nr")
 
 # lets see how many ppts we have in each group
 gc %>% group_by(Session) %>%
@@ -121,7 +123,7 @@ gc_dat %>% group_by(subject_nr, Site, Session) %>%
 
 # now we average to get RTs ----
 avg_gc = gc_dat %>%
-  group_by(subject_nr, validity, gazeCond, Session, Site, ran_seq) %>%
+  group_by(subject_nr, validity, gazeCond, Session, Site, ran_seq, Cluster) %>%
   mutate(Session = as.factor(Session),
          ran_seq = as.factor(ran_seq)) %>%
   summarize(rt = mean(response_time))
@@ -279,7 +281,8 @@ avg_gc_long %>%
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+theme_bw()+
-  geom_hline(yintercept = 0, linetype = "dashed")
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  facet_wrap(~Cluster)
 
 avg_gc_long_ana = avg_gc_long %>% filter(!subject_nr %in% bad_pees) 
 afex::aov_car(gc ~ gazeCond*Site + Error(subject_nr/gazeCond*Site), avg_gc_long_ana)
