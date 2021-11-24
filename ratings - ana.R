@@ -14,10 +14,12 @@ ist = do.call(plyr::rbind.fill, ist)
 # preprocess
 ist_scored = ist %>% 
   rename(subject_nr = participant) %>%
-  group_by(subject_nr, ï..scenarioNo) %>%
+  group_by(subject_nr) %>%
   slice(c(-1)) %>%
   mutate(stand_score = ifelse(Lefttype == "I", 100-rating.response, rating.response)) %>%
-  summarize(avg_ist = mean(stand_score)) %>% drop_na() %>%
+  summarize(avg_ist = mean(stand_score),
+            rt_ist = mean(rating.rt)) %>%
+  drop_na() %>%
   print(n = Inf) 
 # waytz
 waytz_path = paste(getwd(), "/waytz/", sep = "")

@@ -41,7 +41,7 @@ gc_dat = gc %>%
   summarize(rt = mean(response_time), 
             accu = first(accu_percent)) %>%
   left_join(read.csv("aggregated_ratings.csv"), by = "subject_nr") %>%
-  select(-X, -ï..scenarioNo)
+  select(-X)
 
 # the idea is to see which observations are alike?
 df_cluster = as.data.frame(gc_dat)

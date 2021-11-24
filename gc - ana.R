@@ -56,7 +56,7 @@ gc %>% group_by(Session) %>%
   filter(subject_nr != 0) %>%
   summarize(n = n_distinct(subject_nr))
 
-  gc %>% group_by(Site, Session) %>%
+gc %>% group_by(Site, Session) %>%
   filter(subject_nr != 0) %>%
   summarize(n = n_distinct(subject_nr))
 # how many full data sets?
@@ -380,6 +380,20 @@ ggplot(avg_gc_rat, aes(avg_ist, gc, color = gazeCond))+
   geom_smooth(method = "lm")+
   theme_bw()+
   facet_wrap(~Site)
+
+ggplot(avg_gc_rat, aes(rt_ist, gc, color = gazeCond))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  theme_bw()+
+  facet_wrap(~Site)
+ggplot(avg_gc_rat, aes(rt_ist, avg_ist, color = gazeCond))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  theme_bw()
+ggplot(avg_gc_rat, aes(rt_ist, gc, color = gazeCond))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  theme_bw()
 
 ggplot(avg_gc_rat, aes(avg_ist, gc, color = Site))+
   geom_point()+
