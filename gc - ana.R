@@ -21,7 +21,7 @@ rand_seq_dat = data.frame(
   subject_nr = c(1:30),
   ran_seq = c(3,2,5,1,6,4, rep(c(1:6), times = 4))
 )
-cluster_dat = read.csv("cluster_data.csv")
+cluster_dat = read_csv("cluster_data.csv")
 
 # First, we preprocess the data ----
 gc_dat = gc %>% 
@@ -34,12 +34,12 @@ gc_dat = gc %>%
     ) %>%
   filter(
     correct == 1,
-    response_time > 150,
-    response_time < 1200,
+    response_time > 200,
+    response_time < 1000,
     TRIAL_VALID == 1,
   ) %>%
   group_by(
-    subject_nr, gazeCond, validity
+    subject_nr
     ) %>%
   mutate(
     rm_trial = case_when(response_time > abs(mean(response_time)+2*sd(response_time)) ~ 1,
@@ -74,24 +74,26 @@ gc %>% group_by(Session) %>%
   summarize(n = n_distinct(subject_nr))
 
 # Lets now check how many trials we removed from each participant ---- 
-# gc %>% 
+# gc %>%
 #   group_by(
 #     subject_nr
 #   ) %>%
 #   mutate(
 #     validity = recode(validity, valid="invalid", invalid = "valid"),
 #     accu_percent = sum(correct == 1)/length(correct),
-#     fast_resp = case_when(response_time <= 200 ~ 1,
-#                           response_time >= 200 ~ 0),
-#     slow_resp = case_when(response_time >= 1000 ~ 1,
-#                           response_time <= 1000 ~ 0)) %>%
+#     fast_resp = case_when(response_time <= 150 ~ 1,
+#                           response_time >= 150 ~ 0),
+#     slow_resp = case_when(response_time >= 1200 ~ 1,
+#                           response_time <= 1200 ~ 0)) %>%
 #   group_by(
-#     subject_nr, gazeCond, validity, Session
-#     ) %>% 
+#     subject_nr
+#     ) %>%
 #     mutate(
-#       sd_out = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
-#                          response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
-#       ) %>% 
+#       # sd_out = case_when(response_time > abs(mean(response_time)+3*sd(response_time)) ~ 1,
+#       #                    response_time < abs(mean(response_time)-3*sd(response_time)) ~ 1),
+#       sd_out = case_when(response_time > quantile(response_time, .975) ~ 1,
+#                            response_time < quantile(response_time, .025) ~ 1)
+#       ) %>%
 #   group_by(
 #     subject_nr, Session
 #   ) %>%
@@ -123,19 +125,19 @@ acc_dat %>%
   geom_histogram()+
   facet_wrap(~Session)
 
-acc_dat %>% filter(abs(z_accu)>3) %>% print(n = Inf)
+acc_dat %>% filter(abs(z_accu)>2) %>% print(n = Inf)
 # 23, 12, 25
 
 # number of trials remaining?
 gc_dat %>% group_by(subject_nr, Site, Session) %>%
   summarize(n_trials = n()) %>% 
-  group_bt(subject_nr) %>%
+  group_by(subject_nr) %>%
   summarize(perct = n_trials/128) %>% print(n = Inf)
 
 # now we average to get RTs ----
 avg_gc = gc_dat %>%
   group_by(subject_nr, validity, gazeCond, Session, 
-           Site, ran_seq, Cluster, Blockno) %>%
+           Site, ran_seq, Cluster) %>%
   mutate(Session = as.factor(Session),
          ran_seq = as.factor(ran_seq)) %>%
   summarize(rt = median(response_time))
@@ -220,6 +222,9 @@ avg_gc_long %>%
   geom_vline(xintercept = -3, linetype = "dashed", size = 1)+
   theme_bw()
 
+avg_gc_long$subject_nr[which(abs(avg_gc_long$gc_sd) > 3)]
+bad_pees = c(avg_gc_long$subject_nr[which(abs(avg_gc_long$gc_sd) > 3)])
+
 avg_gc_long %>%
   ggplot(aes(gc, fill = Site))+
   geom_histogram(bins = 30, position = position_dodge())+
@@ -233,8 +238,11 @@ avg_gc_long$subject_nr[which(avg_gc_long$gc == quantile(avg_gc_long$gc)[5])]
 avg_gc_long$subject_nr[which(avg_gc_long$gc == quantile(avg_gc_long$gc)[1])]
 
 bad_pees = c(
-  7, 12, 23, 25 # high error rate (more than 3 SDs beyond the avg error rate)
-  #12 # GCE lower than the 4th quartile range
+  # may have not noticed diff between mutual and avoiding
+   # gc
+  12,
+  13, 23, 25
+  #26
   )
 
 avg_gc_long %>%
@@ -307,9 +315,10 @@ avg_gc_long %>%
   geom_hline(yintercept = 0, linetype = "dashed")
 
 avg_gc_long_ana = avg_gc_long %>% filter(!subject_nr %in% bad_pees) 
-
 aov_car(gc ~ gazeCond*Site + Error(subject_nr/gazeCond*Site), avg_gc_long_ana)
 anova(lmer(gc ~ gazeCond*Site + (1|subject_nr), avg_gc_long_ana))
+summary(lmer(gc ~ gazeCond*Site + (1|subject_nr), avg_gc_long_ana))
+
 anova(lmer(gc ~ gazeCond*Site + (1|gazeCond) + (1|subject_nr), avg_gc_long_ana))
 anova(lmer(gc ~ gazeCond*Site + (1|subject_nr/gazeCond), avg_gc_long_ana))
 anova(lmer(gc ~ gazeCond*Site + (gazeCond||subject_nr), avg_gc_long_ana))
@@ -374,7 +383,7 @@ avg_gc_long %>%
   theme_bw()
 
 # tms with ratings ----
-rat_dat = read.csv("aggregated_ratings.csv")
+rat_dat = read_csv("aggregated_ratings.csv")
 
 avg_gc_rat = avg_gc_long %>%
   left_join(rat_dat, by = "subject_nr") %>% print(n = Inf) %>% 
@@ -484,4 +493,16 @@ avg_gc_rat2 %>%
   stat_summary(fun.data = mean_se, geom = "point", position = position_dodge(.2), size = 5)+
   stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(.2), width = .1)+
   facet_wrap(~waytz_quart)+theme_bw()
+
+# cluster gc ----
+avg_gc_long %>%
+  filter(!subject_nr %in% bad_pees) %>%
+  ggplot(aes(Site, gc, color = gazeCond))+
+  scale_color_manual(values = cbbPalette)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  facet_wrap(~Cluster)+
+  theme_bw()
 

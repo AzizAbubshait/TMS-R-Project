@@ -22,12 +22,12 @@ gc_dat = gc %>%
   ) %>%
   filter(
     correct == 1,
-    response_time > 150,
-    response_time < 1500,
+    response_time > 200,
+    response_time < 1200,
     TRIAL_VALID == 1
   ) %>%
   group_by(
-    subject_nr, gazeCond, Site, validity
+    subject_nr
   ) %>% 
   mutate(
     rm_trial = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
@@ -82,7 +82,7 @@ print(gap_stat, method = "firstmax")
 fviz_gap_stat(gap_stat)
 
 final = kmeans(df_cluster, 2, nstart = 25)
-final2 = kmeans(df_cluster, 2, nstart = 25)
+final2 = kmeans(df_cluster, 3, nstart = 25)
 
 print(final)
 fviz_cluster(final, data = df_cluster)
