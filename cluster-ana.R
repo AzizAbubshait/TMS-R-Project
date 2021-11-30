@@ -22,7 +22,7 @@ gc_dat = gc %>%
   ) %>%
   filter(
     correct == 1,
-    response_time > 250,
+    response_time > 150,
     response_time < 1500,
     TRIAL_VALID == 1
   ) %>%
@@ -82,6 +82,8 @@ print(gap_stat, method = "firstmax")
 fviz_gap_stat(gap_stat)
 
 final = kmeans(df_cluster, 2, nstart = 25)
+final2 = kmeans(df_cluster, 2, nstart = 25)
+
 print(final)
 fviz_cluster(final, data = df_cluster)
 
@@ -91,8 +93,10 @@ df_cluster = as.data.frame(df_cluster)
     mutate(Cluster = final$cluster) %>%
     group_by(Cluster) %>%
     summarise_all("mean"))
+
 df_cluster_2 = df_cluster %>%
-  mutate(Cluster = final$cluster) 
+  mutate(Cluster = final$cluster,
+         Cluster2 = final2$cluster) 
 
 gc_cluster_data = df_cluster_2 %>%
   tibble::rownames_to_column("subject_nr") %>%

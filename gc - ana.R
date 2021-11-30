@@ -1,5 +1,8 @@
 library(tidyverse)
 library(PupillometryR)
+library(afex)
+library(lme4)
+library(lmerTest)
 
 rm(list = ls())
 # load packages
@@ -16,7 +19,7 @@ gc = do.call(plyr::rbind.fill, gc)
 # ppt sequence. this is a manual process
 rand_seq_dat = data.frame(
   subject_nr = c(1:30),
-  ran_seq = c(3,2,5,1,6,4,1:6,1:6,1:6,1:6)
+  ran_seq = c(3,2,5,1,6,4, rep(c(1:6), times = 4))
 )
 cluster_dat = read.csv("cluster_data.csv")
 
@@ -27,21 +30,21 @@ gc_dat = gc %>%
     ) %>%
   mutate(
     validity = recode(validity, valid="invalid", invalid = "valid"),
-    accu_percent = sum(correct == 1)/length(correct)
+    accu_percent = sum(correct == 1)/length(correct),
     ) %>%
   filter(
     correct == 1,
-    response_time > 250,
-    response_time < 1500,
-    TRIAL_VALID == 1
+    response_time > 150,
+    response_time < 1200,
+    TRIAL_VALID == 1,
   ) %>%
   group_by(
-    subject_nr, gazeCond, Site, validity
-           ) %>% 
-  mutate(
-    rm_trial = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
+    subject_nr, gazeCond, validity
     ) %>%
+  mutate(
+    rm_trial = case_when(response_time > abs(mean(response_time)+2*sd(response_time)) ~ 1,
+                         response_time < abs(mean(response_time)-2*sd(response_time)) ~ 1)
+  ) %>%
   filter(
     is.na(rm_trial) == T,
     subject_nr != 0
@@ -71,41 +74,44 @@ gc %>% group_by(Session) %>%
   summarize(n = n_distinct(subject_nr))
 
 # Lets now check how many trials we removed from each participant ---- 
-gc %>% 
-  group_by(
-    subject_nr, Session
-  ) %>%
-  mutate(
-    validity = recode(validity, valid="invalid", invalid = "valid"),
-    accu_percent = sum(correct == 1)/length(correct),
-    fast_resp = case_when(response_time <= 200 ~ 1,
-                          response_time >= 200 ~ 0),
-    slow_resp = case_when(response_time >= 1500 ~ 1,
-                          response_time <= 1500 ~ 0)) %>%
-  group_by(
-    subject_nr, gazeCond, validity, Session
-    ) %>% 
-    mutate(
-      sd_out = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
-                         response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
-      ) %>% 
-  group_by(
-    subject_nr, Session
-  ) %>%
-  summarize(fast_resp = sum(fast_resp == 1, na.rm = T),
-            slow_resp = sum(slow_resp == 1, na.rm = T),
-            rob_fail = sum(TRIAL_VALID == 0, na.rm = T),
-            sd_out = sum(sd_out == 1, na.rm = T),
-            err = sum(correct == 0, na.rm = T)) %>%
-  filter(subject_nr != 0) %>%
-  mutate(total = fast_resp+slow_resp+rob_fail+sd_out+err) %>%
-  mutate(percent_rm = total/128*100) %>%
-  print(n = Inf)
+# gc %>% 
+#   group_by(
+#     subject_nr
+#   ) %>%
+#   mutate(
+#     validity = recode(validity, valid="invalid", invalid = "valid"),
+#     accu_percent = sum(correct == 1)/length(correct),
+#     fast_resp = case_when(response_time <= 200 ~ 1,
+#                           response_time >= 200 ~ 0),
+#     slow_resp = case_when(response_time >= 1000 ~ 1,
+#                           response_time <= 1000 ~ 0)) %>%
+#   group_by(
+#     subject_nr, gazeCond, validity, Session
+#     ) %>% 
+#     mutate(
+#       sd_out = case_when(response_time > abs(mean(response_time)+2.5*sd(response_time)) ~ 1,
+#                          response_time < abs(mean(response_time)-2.5*sd(response_time)) ~ 1)
+#       ) %>% 
+#   group_by(
+#     subject_nr, Session
+#   ) %>%
+#   summarize(fast_resp = sum(fast_resp == 1, na.rm = T),
+#             slow_resp = sum(slow_resp == 1, na.rm = T),
+#             rob_fail = sum(TRIAL_VALID == 0, na.rm = T),
+#             sd_out = sum(sd_out == 1, na.rm = T),
+#             err = sum(correct == 0, na.rm = T)) %>%
+#   filter(subject_nr != 0) %>%
+#   mutate(total = fast_resp+slow_resp+rob_fail+sd_out+err) %>%
+#   mutate(percent_rm = total/128*100) %>%
+#   print(n = Inf)
 
 # what about ppts accuracy rate? ----
 acc_dat = gc_dat %>%
   group_by(subject_nr, Session) %>%
-  summarize(accu = first(accu_percent)) %>% print(n = Inf)
+  summarize(accu = first(accu_percent)) %>%
+  ungroup(subject_nr, Session) %>%
+  mutate(z_accu = scale(accu)) %>%
+         print(n = Inf)
 
 acc_dat %>%
   ggplot(aes(accu))+
@@ -113,20 +119,26 @@ acc_dat %>%
   facet_wrap(~Session)
 
 acc_dat %>%
-  ggplot(aes(scale(accu)))+
+  ggplot(aes(z_accu))+
   geom_histogram()+
   facet_wrap(~Session)
 
+acc_dat %>% filter(abs(z_accu)>3) %>% print(n = Inf)
+# 23, 12, 25
+
 # number of trials remaining?
 gc_dat %>% group_by(subject_nr, Site, Session) %>%
-  summarize(n_trials = n()) %>% print(n = Inf)
+  summarize(n_trials = n()) %>% 
+  group_bt(subject_nr) %>%
+  summarize(perct = n_trials/128) %>% print(n = Inf)
 
 # now we average to get RTs ----
 avg_gc = gc_dat %>%
-  group_by(subject_nr, validity, gazeCond, Session, Site, ran_seq, Cluster) %>%
+  group_by(subject_nr, validity, gazeCond, Session, 
+           Site, ran_seq, Cluster, Blockno) %>%
   mutate(Session = as.factor(Session),
          ran_seq = as.factor(ran_seq)) %>%
-  summarize(rt = mean(response_time))
+  summarize(rt = median(response_time))
 
 # now lets check some distributions ----
 ggplot(avg_gc, aes(rt, fill = validity))+
@@ -158,7 +170,7 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
                position = position_dodge(.5), color = "black")+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
-  facet_wrap(~Site)
+  facet_wrap(Blockno~Site, scales = "free")
 
 # Raincloud plot: Stim X Gaze X Sequence X validity
 ggplot(avg_gc, aes(gazeCond, rt, color = validity, fill = validity))+
@@ -187,16 +199,14 @@ ggplot(avg_gc, aes(gazeCond, rt, color = validity))+
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+
-  facet_wrap(~Session)+theme_bw()
+  facet_grid(~Session)+theme_bw()
 
 # now lets calculate GCE ----
 #avg_gc$rt_scale = scale(avg_gc$rt)
 avg_gc_long = avg_gc %>%
   #select(-rt) %>%
   pivot_wider(names_from = validity, values_from = rt) %>%
-  mutate(gc = invalid-valid,
-         diseng = valid+invalid) %>% 
-  mutate(diff = diseng - gc) %>% print(n = Inf)
+  mutate(gc = invalid-valid) %>% print(n = Inf)
 avg_gc_long$gc_sd = scale(avg_gc_long$gc, center = T, scale = T)
 avg_gc_long$ran_seq = factor(avg_gc_long$ran_seq, levels = c(1:6))
 
@@ -219,8 +229,11 @@ avg_gc_long %>%
   geom_vline(xintercept = quantile(avg_gc_long$gc)[5], linetype = "dashed", size = 1)+
   theme_bw()
 
+avg_gc_long$subject_nr[which(avg_gc_long$gc == quantile(avg_gc_long$gc)[5])]
+avg_gc_long$subject_nr[which(avg_gc_long$gc == quantile(avg_gc_long$gc)[1])]
+
 bad_pees = c(
-  13 # high error rate (more than 3 SDs beyond the avg error rate)
+  7, 12, 23, 25 # high error rate (more than 3 SDs beyond the avg error rate)
   #12 # GCE lower than the 4th quartile range
   )
 
@@ -249,6 +262,16 @@ avg_gc_long %>%
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))
+
+avg_gc_long %>%
+  filter(!subject_nr %in% bad_pees) %>%
+  ggplot(aes(Blockno, gc, color = gazeCond))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
+               position = position_dodge(.5))+
+  stat_summary(fun.data = mean_se, geom = "point", size = 5,
+               position = position_dodge(.5))+
+  geom_smooth(se = F)+
+  facet_wrap(~Site)
 
 avg_gc_long %>%
   #filter(!subject_nr %in% bad_pees) %>%
@@ -281,33 +304,15 @@ avg_gc_long %>%
                position = position_dodge(.5))+
   stat_summary(fun.data = mean_se, geom = "point", size = 5,
                position = position_dodge(.5))+theme_bw()+
-  geom_hline(yintercept = 0, linetype = "dashed")+
-  facet_wrap(~Cluster)
+  geom_hline(yintercept = 0, linetype = "dashed")
 
 avg_gc_long_ana = avg_gc_long %>% filter(!subject_nr %in% bad_pees) 
-afex::aov_car(gc ~ gazeCond*Site + Error(subject_nr/gazeCond*Site), avg_gc_long_ana)
-anova(lme4::lmer(gc ~ gazeCond*Site + (1|subject_nr), avg_gc_long_ana))
-anova(lme4::lmer(gc ~ gazeCond*Site + (1|gazeCond) + (1|subject_nr), avg_gc_long_ana))
-anova(lme4::lmer(gc ~ gazeCond*Site + (1|subject_nr/gazeCond), avg_gc_long_ana))
-anova(lme4::lmer(gc ~ gazeCond*Site + (gazeCond||subject_nr), avg_gc_long_ana))
 
-# avg_gc_long %>%
-#   filter(!subject_nr %in% bad_pees) %>%
-#   ggplot(aes(Site, diseng, color = gazeCond))+
-#   scale_color_manual(values = cbbPalette)+
-#   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-#                position = position_dodge(.5))+
-#   stat_summary(fun.data = mean_se, geom = "point", size = 5,
-#                position = position_dodge(.5))+theme_bw()
-# 
-# avg_gc_long %>%
-#   filter(!subject_nr %in% bad_pees) %>%
-#   ggplot(aes(Site, diff, color = gazeCond))+
-#   scale_color_manual(values = cbbPalette)+
-#   stat_summary(fun.data = mean_se, geom = "errorbar", width = .1, 
-#                position = position_dodge(.5))+
-#   stat_summary(fun.data = mean_se, geom = "point", size = 5,
-#                position = position_dodge(.5))+theme_bw()
+aov_car(gc ~ gazeCond*Site + Error(subject_nr/gazeCond*Site), avg_gc_long_ana)
+anova(lmer(gc ~ gazeCond*Site + (1|subject_nr), avg_gc_long_ana))
+anova(lmer(gc ~ gazeCond*Site + (1|gazeCond) + (1|subject_nr), avg_gc_long_ana))
+anova(lmer(gc ~ gazeCond*Site + (1|subject_nr/gazeCond), avg_gc_long_ana))
+anova(lmer(gc ~ gazeCond*Site + (gazeCond||subject_nr), avg_gc_long_ana))
 
 avg_gc_long %>%
   #filter(!subject_nr %in% bad_pees) %>%
@@ -385,7 +390,8 @@ ggplot(avg_gc_rat, aes(rt_ist, gc, color = gazeCond))+
   geom_point()+
   geom_smooth(method = "lm")+
   theme_bw()+
-  facet_wrap(~Site)
+  facet_wrap(~Site, scales = "free")
+
 ggplot(avg_gc_rat, aes(rt_ist, avg_ist, color = gazeCond))+
   geom_point()+
   geom_smooth(method = "lm")+
